@@ -20,12 +20,8 @@ namespace PlanFrameworkSVGRename
         public   FilesResource files1;
         DataTable floorplandataTable;
         DataTable unitplandataTable;
-        Google.Apis.Drive.v3.Data.File floorfile;
-        Google.Apis.Drive.v3.Data.File unitfile;
         public string UnitPlanid = "";
         public string FloorPlanid = "";
-        List<Google.Apis.Drive.v3.Data.File> floorlist;
-        List<Google.Apis.Drive.v3.Data.File> unitlist;
         public GoogleDriveDriveService()
         {
             UserCredential credential;
@@ -172,70 +168,18 @@ namespace PlanFrameworkSVGRename
         public void GetData(string EstateName)
         {
             string saveFileName = AppDomain.CurrentDomain.BaseDirectory;
-            floorlist = GetFilesbyparentsid(FloorPlanid).list;
-            floorfile = floorlist.Find(a => a.Name == "floorplan_mapping_result.xlsx");
             List<Imgid_floorplan> imgid_floorplans1 = DB.SqlServer.Select<Imgid_floorplan>().Where(a => (a.EstateName == "" ? null : a.EstateName) == EstateName).ToList();
-            DataTable dataTable = Ext.ToDataTable(imgid_floorplans1);
-            if (floorfile != null)
-            {
-                Stream stream = new FileStream(saveFileName + floorfile.Name, FileMode.Truncate, FileAccess.ReadWrite);
-                Google.Apis.Download.IDownloadProgress downloadProgress = files1.Get(floorfile.Id).DownloadWithStatus(stream);
-                StreamReader reader = new StreamReader(stream);
-               
-                string a=  reader.ReadToEnd();
-                stream.Flush();
-                stream.Close();
-                stream.Dispose();
-                reader.Close();
-                reader.Dispose();
-                string[] vs = a.Split( Environment.NewLine.ToCharArray(), StringSplitOptions.RemoveEmptyEntries);
-                floorplandataTable = Ext.ToDataTable<Imgid_floorplan>(vs);
-                var data=   from  d in dataTable.AsEnumerable()
-                                  where  !(from f in floorplandataTable.AsEnumerable() select f.Field<int>("imgid")).Contains(d.Field<int>("imgid"))
-                            select d;
-                floorplandataTable= floorplandataTable.AsEnumerable().Union(data).CopyToDataTable();
-            }
-            else
-            {
-                floorplandataTable = dataTable;
-            }
+            floorplandataTable = Ext.ToDataTable(imgid_floorplans1);
 
-            unitlist = GetFilesbyparentsid(UnitPlanid).list;
-            unitfile = unitlist.Find(a => a.Name == "unitplan_mapping_result.xlsx");
             List<Imgid_unitplan> Imgid_unitplan1 = DB.SqlServer.Select<Imgid_unitplan>().Where(a => (a.EstateName == "" ? null : a.EstateName) == EstateName).ToList();
-            dataTable = Ext.ToDataTable(Imgid_unitplan1);
-            if (unitfile != null)
-            {
-                Stream stream = new FileStream(saveFileName + unitfile.Name, FileMode.Truncate, FileAccess.ReadWrite);
-                Google.Apis.Download.IDownloadProgress downloadProgress = files1.Get(unitfile.Id).DownloadWithStatus(stream);
-                StreamReader reader = new StreamReader(stream, Encoding.UTF8);
-                
-                string a = reader.ReadToEnd();
-                stream.Flush();
-                stream.Close();
-                stream.Dispose();
-                reader.Close();
-                reader.Dispose();
-                string[] vs = a.Split(Environment.NewLine.ToCharArray() ,StringSplitOptions.RemoveEmptyEntries);
-                unitplandataTable = Ext.ToDataTable<Imgid_unitplan>(vs);
-                var data = from d in dataTable.AsEnumerable()
-                           where !(from f in unitplandataTable.AsEnumerable() select f.Field<int>("imgid")).Contains(d.Field<int>("imgid"))
-                           select d;
-                unitplandataTable = unitplandataTable.AsEnumerable().Union(data).CopyToDataTable();
-            }
-            else
-            {
-                unitplandataTable = dataTable;
-            }
+            unitplandataTable = Ext.ToDataTable(Imgid_unitplan1);
+        
             
         }
         public void SaveData()
         
         {
-            if (floorfile != null)
-            {
-                files1.Delete(floorfile.Id).Execute();
-            }
+            
             Google.Apis.Drive.v3.Data.File file = new Google.Apis.Drive.v3.Data.File();
             file.Name = "floorplan_mapping_result.xlsx";
             file.MimeType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
@@ -243,22 +187,15 @@ namespace PlanFrameworkSVGRename
             Stream stream = Ext.ExportExcel(floorplandataTable, file.Name);
             Google.Apis.Upload.IUploadProgress uploadProgress = files1.Create(file, stream, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet").Upload();
             Ext.close();
-            if (unitfile != null)
-            {
-                files1.Delete(unitfile.Id).Execute();
-            }
+          
             file.Name = "unitplan_mapping_result.xlsx";
             file.MimeType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
             file.Parents = new List<string>() { UnitPlanid };
             stream = Ext.ExportExcel(unitplandataTable, file.Name);
             uploadProgress = files1.Create(file, stream, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet").Upload();
             Ext.close();
-            floorfile = null;
-            unitfile = null;
             floorplandataTable = null;
             unitplandataTable = null;
-            floorlist = null;
-            unitlist = null;
         }
         public void CopyAll(string id, Imgid_unitplan img)
         {
@@ -315,7 +252,7 @@ namespace PlanFrameworkSVGRename
                 {
                     string[] vs = item.Name.Split('.')[0].Split('_');
                     img.Floordesc = vs[0].Replace("-", "/F-") + "/F";
-                    img.Flat = vs.Length == 2 ? vs[1] + "室" : null;
+                    img.Flat = vs.Length == 2 ? vs[1].TrimStart('0') + "室" : null;
                     Log.WriteLogs("LOG", "INFO", $"开始复制文件：{item.Name}");
                     CopyAll(item.Id, img);
                     img.Floordesc = null;
@@ -325,57 +262,34 @@ namespace PlanFrameworkSVGRename
                 return;
             }
             Google.Apis.Drive.v3.Data.File file = files1.Get(id).Execute();
-          var imgid_unitplans = unitplandataTable.AsEnumerable() .Where(a => (a["PhaseName"].  ToString().Trim()== "" ? null : a["PhaseName"]. ToString().Trim()) == img.PhaseName).Where(a => (a["BuildingName"].  ToString().Trim()== "" ? null : a["BuildingName"]. ToString().Trim()) == img.BuildingName).Where(a => (a["Floordesc"].  ToString().Trim()== "" ? null : a["Floordesc"]. ToString().Trim()) == img.Floordesc).Where(a => (a["Flat"].  ToString().Trim()== "" ? null : a["Flat"]. ToString().Trim()) == img.Flat).ToList();
-            if (imgid_unitplans.Count==0)
+            if (string.IsNullOrWhiteSpace(img.Flat))
             {
-                var Imgid_floorplans = floorplandataTable.AsEnumerable().Where(a => (a["PhaseName"].  ToString().Trim()== "" ? null : a["PhaseName"]. ToString().Trim()) == img.PhaseName).Where(a => (a["BuildingName"].  ToString().Trim()== "" ? null : a["BuildingName"]. ToString().Trim()) == img.BuildingName).Where(a => (a["Floordesc"].  ToString().Trim()== "" ? null : a["Floordesc"]. ToString().Trim()) == img.Floordesc).ToList();
-                if (Imgid_floorplans.Count==0)
+                var Imgid_floorplans = floorplandataTable.AsEnumerable().Where(a => (a["PhaseName"].ToString().Trim() == "" ? null : a["PhaseName"].ToString().Trim()) == img.PhaseName).Where(a => (a["BuildingName"].ToString().Trim() == "" ? null : a["BuildingName"].ToString().Trim()) == img.BuildingName).Where(a => (a["Floordesc"].ToString().Trim() == "" ? null : a["Floordesc"].ToString().Trim()) == img.Floordesc).ToList();
+                if (Imgid_floorplans.Count == 0)
                 {
-                    Log.WriteLogs("LOG", "INFO", $"没有在数据库查询到该文件的数据");
-                    if (file.Name.Contains("_"))
-                    {
-                        file.Parents = new List<string>() { UnitPlanid };
-                        Google.Apis.Drive.v3.Data.File file3 = unitlist.Find(a => a.Name == file.Name);
-                        if (file3 != null)
-                        {
-                            files1.Delete(file3.Id).Execute();
-                        }
-                    }
-                    else
-                    {
-                        file.Parents = new List<string>() { FloorPlanid };
-                        Google.Apis.Drive.v3.Data.File file3 = floorlist.Find(a => a.Name == file.Name);
-                        if (file3 != null)
-                        {
-                            files1.Delete(file3.Id).Execute();
-                        }
-                    }
-                    file.Id = null;
-
-                    files1.Copy(file, id).Execute();
-                    return;
+                    Log.WriteLogs("LOG", "INFO", $"没有在Imgid_floorplan查询到该文件的数据");
                 }
-                file.Name = Imgid_floorplans.First()["imgid"].  ToString().Trim()+"."+ file.Name.Split('.').Last();
-                Imgid_floorplans.First()["是否已配对"] = "Y";
+                else
+                {
+                    file.Name = Imgid_floorplans.First()["imgid"].ToString().Trim() + "." + file.Name.Split('.').Last();
+                    Imgid_floorplans.First()["是否已配对"] = "Y";
+                }
                 file.Parents = new List<string>() { FloorPlanid };
-                Google.Apis.Drive.v3.Data.File file2 = floorlist.Find(a => a.Name == file.Name);
-                if (file2 != null)
-                {
-                    files1.Delete(file2.Id).Execute();
-                }
             }
             else
             {
-                file.Name = imgid_unitplans.First()["imgid"].  ToString().Trim()+ "." + file.Name.Split('.').Last();
-                imgid_unitplans.First()["是否已配对"] = "Y";
-                file.Parents = new List<string>() { UnitPlanid };
-                Google.Apis.Drive.v3.Data.File file2 = unitlist.Find(a => a.Name == file.Name);
-                if (file2 != null)
+                var imgid_unitplans = unitplandataTable.AsEnumerable().Where(a => (a["PhaseName"].ToString().Trim() == "" ? null : a["PhaseName"].ToString().Trim()) == img.PhaseName).Where(a => (a["BuildingName"].ToString().Trim() == "" ? null : a["BuildingName"].ToString().Trim()) == img.BuildingName).Where(a => (a["Floordesc"].ToString().Trim() == "" ? null : a["Floordesc"].ToString().Trim()) == img.Floordesc).Where(a => (a["Flat"].ToString().Trim() == "" ? null : a["Flat"].ToString().Trim()) == img.Flat).ToList();
+                if (imgid_unitplans.Count == 0)
                 {
-                    files1.Delete(file2.Id).Execute();
+                    Log.WriteLogs("LOG", "INFO", $"没有在imgid_unitplan查询到该文件的数据");
                 }
+                else
+                {
+                    file.Name = imgid_unitplans.First()["imgid"].ToString().Trim() + "." + file.Name.Split('.').Last();
+                    imgid_unitplans.First()["是否已配对"] = "Y";
+                }
+                file.Parents = new List<string>() { UnitPlanid };
             }
-            
             file.Id = null;
            
           Google.Apis.Drive.v3.Data.File file1 = files1.Copy(file, id).Execute();
