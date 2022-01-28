@@ -526,7 +526,16 @@ namespace PlanFrameworkSVGRename
         /// <returns></returns>
         string GetEstateName(string name)
         {
-            return name.Split('_')[1];
+            string[] vs = name.Split('_');
+            if (vs.Length>1)
+            {
+                return vs[1];
+            }
+            else
+            {
+                return "";
+            }
+           
         }
         /// <summary>
         /// 获取保存副本的文件夹
@@ -585,6 +594,7 @@ namespace PlanFrameworkSVGRename
                 Log.WriteLogs("LOG", "INFO", $"请先选择文件");
                 return;
             }
+          
             string id = this.listView1.SelectedItems[0].SubItems[3].Text;
             TreeNode node = treeView1.Nodes.Find(id, true).First();
             nownode = node.Parent;
@@ -658,25 +668,61 @@ namespace PlanFrameworkSVGRename
             });
         }
         /// <summary>
-        /// 返回根节点
+        /// 生成excel
         /// </summary>
         /// <param name="sender"></param>
         /// <param name="e"></param>
         private void toolStripButton1_Click(object sender, EventArgs e)
         {
+
             try
             {
-                toolStripButton5.Text = "";
-                CreatTree();
-                nownode = null;
-                nowid = "";
-                imgid_Unitplan = new Imgid_unitplan();
+                if (this.listView1.SelectedIndices.Count == 0)
+                {
+                    Log.WriteLogs("LOG", "INFO", $"请先选择文件");
+                    return;
+                }
+
+                string id = this.listView1.SelectedItems[0].SubItems[3].Text;
+                TreeNode node = treeView1.Nodes.Find(id, true).First();
+                nownode = node.Parent;
+                nowid = nownode.Name;
+                getimg();
+                CreatTree4(node);
+                if (!string.IsNullOrWhiteSpace(GetEstateName(node.Text)))
+                {
+                    int flag=0;
+                    string floorexcl = GetEstateName(node.Text) + "_imgid_floorplan.xlsx";
+                    if (service.selectEcel(id, floorexcl))
+                    {
+                        flag = 1;
+                    }
+                    else
+                    {
+                        DialogResult d = MessageBox.Show(floorexcl+"已存在，是否替换", "提示", MessageBoxButtons.YesNo, MessageBoxIcon.Information);
+                        if (d == DialogResult.Yes)
+                        {
+                            flag = 2;
+                        }
+                        else
+                        {
+                            flag = 3;
+                        }
+                    }
+                    service.SaveExcel(id,flag, GetEstateName(node.Text));
+                }
+                else
+                {
+                    Log.WriteLogs("LOG", "INFO", $"请重新选择文件夹");
+                    return;
+                }
+              
             }
             catch (Exception ex)
             {
-                Log.WriteLogs("LOG", "INFO", $"查询共享文件出錯:{ex.Message}");
+                Log.WriteLogs("LOG", "INFO", $"生成excel出錯:{ex.Message}");
                 Log.WriteLogs("LOG", "ERROR", $"{ex.ToString()}");
-                toolStripStatusLabel1.Text = "查询共享文件出錯";
+                toolStripStatusLabel1.Text = "生成excel出錯";
             }
         }
         /// <summary>
@@ -924,24 +970,35 @@ namespace PlanFrameworkSVGRename
         /// <returns></returns>
         private string getpath(string Parentsid,string id)
         {
-            if (string.IsNullOrWhiteSpace(Parentsid))
+            try
             {
-                return "                  ";
-            }
-            TreeNode[] treeNodes = treeView1.Nodes.Find(Parentsid, true);
-            if (treeNodes.Length > 0)
-            {
-                return treeNodes[0].FullPath;
-            }
-            getnode(Parentsid,new List<TreeNode>(),id);
+                if (string.IsNullOrWhiteSpace(Parentsid))
+                {
+                    return "                  ";
+                }
+                TreeNode[] treeNodes = treeView1.Nodes.Find(id, true);
+                if (treeNodes.Length > 0)
+                {
+                    treeNodes = treeView1.Nodes.Find(Parentsid, true);
+                    return treeNodes[0].FullPath;
+                }
+                getnode(Parentsid, new List<TreeNode>(), id);
 
-           treeNodes = treeView1.Nodes.Find(Parentsid, true);
-            if (treeNodes.Length > 0)
-            {
-                return treeNodes[0].FullPath;
+                treeNodes = treeView1.Nodes.Find(Parentsid, true);
+                if (treeNodes.Length > 0)
+                {
+                    return treeNodes[0].FullPath;
+                }
+                else
+                    return "";
             }
-            else
+            catch (Exception ex)
+            {
+                Log.WriteLogs("LOG", "INFO", $"搜索时，获取文件路径出错");
+                Log.WriteLogs("LOG", "ERROR", $"{ex.ToString()}");
                 return "";
+            }
+            
         }
         /// <summary>
         /// 反向递归生成节点
@@ -951,28 +1008,36 @@ namespace PlanFrameworkSVGRename
         /// <param name="id1"></param>
         private void getnode(string id, List<TreeNode> treeNodes2,string id1)
         {
-
-            List<TreeNode> treeNodes1 = CreatTrees3(id);
-            TreeNode treeNode = treeNodes1.Find(a => a.Name == id1);
-            if (treeNode!=null)
+            try
             {
-                treeNode .Nodes.AddRange(treeNodes2.ToArray());
+                List<TreeNode> treeNodes1 = CreatTrees3(id);
+                TreeNode treeNode = treeNodes1.Find(a => a.Name == id1);
+                if (treeNode != null)
+                {
+                    treeNode.Nodes.AddRange(treeNodes2.ToArray());
+                }
+                TreeNode[] treeNodes = treeView1.Nodes.Find(id, true);
+                if (treeNodes.Length > 0)
+                {
+                    this.treeView1.Invoke(
+                      new Action(() =>
+                      {
+                          treeNodes[0].Nodes.AddRange(treeNodes1.ToArray());
+                      }));
+                    return;
+                }
+                else
+                {
+                    Google.Apis.Drive.v3.Data.File file = service.GetFilesbyId(id);
+                    getnode(file.Parents[0], treeNodes1, id);
+                }
             }
-            TreeNode[] treeNodes = treeView1.Nodes.Find(id, true);
-            if (treeNodes.Length > 0)
+            catch (Exception ex)
             {
-                this.treeView1.Invoke(
-                  new Action(() =>
-                  {
-                      treeNodes[0].Nodes.AddRange(treeNodes1.ToArray());
-                  }));
-                return;
+                Log.WriteLogs("LOG", "INFO", $"反向递归生成节点时出错");
+                Log.WriteLogs("LOG", "ERROR", $"{ex.ToString()}");
             }
-            else
-            {
-                Google.Apis.Drive.v3.Data.File file = service.GetFilesbyId(id);
-                getnode(file.Parents[0], treeNodes1,id);
-            }
+           
         }
     }
 }

@@ -46,6 +46,35 @@ namespace PlanFrameworkSVGRename
             return dt;
         }
         /// <summary>
+        /// 集合转DataTable
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="collection"></param>
+        /// <returns></returns>
+        public static DataTable ToDataTable2<T>(IEnumerable<T> collection)
+        {
+
+            var props = typeof(T).GetProperties();
+            var dt = new DataTable();
+            dt.Columns.AddRange(props.Select(p => new DataColumn(p.Name, p.PropertyType)).ToArray());
+            if (collection.Count() > 0)
+            {
+                for (int i = 0; i < collection.Count(); i++)
+                {
+                    ArrayList tempList = new ArrayList();
+                    foreach (PropertyInfo pi in props)
+                    {
+                        object obj = pi.GetValue(collection.ElementAt(i), null);
+                        tempList.Add(obj);
+
+                    }
+                    object[] array = tempList.ToArray();
+                    dt.LoadDataRow(array, true);
+                }
+            }
+            return dt;
+        }
+        /// <summary>
         /// 数组转DataTable
         /// </summary>
         /// <typeparam name="T"></typeparam>
@@ -80,11 +109,14 @@ namespace PlanFrameworkSVGRename
         {
             string saveFileName = AppDomain.CurrentDomain.BaseDirectory + fileName;
             if (!File.Exists(saveFileName))
-            {
-                File.Create(saveFileName);
+            {  
+                ////创建文件
+                file = File.Create(saveFileName);
             }
-            ////创建文件
-             file = new FileStream(saveFileName, FileMode.Truncate, FileAccess.ReadWrite);
+            else
+            {
+                file = new FileStream(saveFileName, FileMode.Truncate, FileAccess.ReadWrite);
+            }
                //以指定的字符编码向指定的流写入字符
                sw = new StreamWriter(file, Encoding.UTF8);
 

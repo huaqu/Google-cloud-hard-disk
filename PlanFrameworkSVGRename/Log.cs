@@ -33,18 +33,35 @@ namespace PlanFrameworkSVGRename
                     {
                         Directory.CreateDirectory(path);
                     }
+                    string errlog= path + "\\" + DateTime.Now.ToString("yyyyMMdd") + "_error.txt";
+                   
                     path = path + "\\" + DateTime.Now.ToString("yyyyMMdd") + ".txt";
                     if (!File.Exists(path))
                     {
                         FileStream fs = File.Create(path);
                         fs.Close();
                     }
+                    if (!File.Exists(errlog))
+                    {
+                        FileStream fs = File.Create(errlog);
+                        fs.Close();
+                    }
                     if (File.Exists(path))
                     {
-                        StreamWriter sw = new StreamWriter(path, true, System.Text.Encoding.Default);
+                        StreamWriter sw = new StreamWriter(path, true, System.Text.Encoding.UTF8);
                         sw.WriteLine(DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff") + "  " + type + "-->" + content);
                         //  sw.WriteLine("----------------------------------------");
                         sw.Close();
+                    }
+                    if (type == "ERROR")
+                    {
+                        if(File.Exists(errlog))
+                    {
+                            StreamWriter sw = new StreamWriter(errlog, true, System.Text.Encoding.UTF8);
+                            sw.WriteLine(DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff") + "  " + type + "-->" + content);
+                            //  sw.WriteLine("----------------------------------------");
+                            sw.Close();
+                        }
                     }
                     if (type != "INFO")
                     {
