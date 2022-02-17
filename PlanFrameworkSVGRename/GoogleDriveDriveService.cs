@@ -249,6 +249,7 @@ namespace PlanFrameworkSVGRename
                 }
             }
             int i = 2;
+            list = GetFilesbyparentsid(id).list;
             while (true)
             {
                 file = list.Find(a => a.Name == floorexcl);
@@ -338,7 +339,7 @@ namespace PlanFrameworkSVGRename
                 {
                     string[] vs = item.Name.Split('.')[0].Split('_');
                     img.Floordesc = vs[0].Replace("-", "/F-").Replace(",", "/F,") + "/F";
-                    img.Flat = vs.Length == 2 ? vs[1].TrimStart('0') + "室" : null;
+                    img.Flat = vs.Length == 2 ? vs[1].TrimStart('0') : null;
                     Log.WriteLogs("LOG", "INFO", $"开始复制文件：{item.Name}");
                     CopyAll(item.Id, img);
                     img.Floordesc = null;
@@ -366,7 +367,8 @@ namespace PlanFrameworkSVGRename
                 }
                 else
                 {
-                    var imgid_unitplans = unitplandataTable.AsEnumerable().Where(a => (a["PhaseName"].ToString().Trim() == "" ? null : a["PhaseName"].ToString().Trim()) == img.PhaseName).Where(a => (a["BuildingName"].ToString().Trim() == "" ? null : a["BuildingName"].ToString().Trim()) == img.BuildingName).Where(a => (a["Floordesc"].ToString().Trim() == "" ? null : a["Floordesc"].ToString().Trim()) == img.Floordesc).Where(a => (a["Flat"].ToString().Trim() == "" ? null : a["Flat"].ToString().Trim()) == img.Flat).ToList();
+                    var imgid_unitplans = unitplandataTable.AsEnumerable().Where(a => (a["PhaseName"].ToString().Trim() == "" ? null : a["PhaseName"].ToString().Trim()) == img.PhaseName).Where(a => (a["BuildingName"].ToString().Trim() == "" ? null : a["BuildingName"].ToString().Trim()) == img.BuildingName).Where(a => (a["Floordesc"].ToString().Trim() == "" ? null : a["Floordesc"].ToString().Trim()) == img.Floordesc).Where(a => (a["Flat"].ToString().Trim() == "" ? null : a["Flat"].ToString().Trim()) == img.Flat|| (a["Flat"].ToString().Trim() == "" ? null : a["Flat"].ToString().Trim()) == img.Flat + "室").ToList();
+                    
                     if (imgid_unitplans.Count == 0)
                     {
                         Log.WriteLogs("LOG", "INFO", $"没有在imgid_unitplan查询到该文件的数据");

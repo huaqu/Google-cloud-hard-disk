@@ -1,4 +1,6 @@
-﻿using System;
+﻿using NPOI.SS.UserModel;
+using NPOI.XSSF.UserModel;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -105,7 +107,7 @@ namespace PlanFrameworkSVGRename
         /// <param name="dt"></param>
         /// <param name="fileName"></param>
         /// <returns></returns>
-        public static Stream ExportExcel(DataTable dt, string fileName)
+        public static Stream ExportExcel1(DataTable dt, string fileName)
         {
             string saveFileName = AppDomain.CurrentDomain.BaseDirectory + fileName;
             if (!File.Exists(saveFileName))
@@ -130,7 +132,7 @@ namespace PlanFrameworkSVGRename
                 //写入标题
                 for (int i = 0; i < dt.Columns.Count; i++)
                 {
-                    strbu.Append(dt.Columns[i].ColumnName.ToString() + "\t");
+                    strbu.Append(dt.Columns[i].ColumnName.ToString().Trim() +Convert.ToChar(9));
                 }
                 //加入换行字符串
                 strbu.Append(Environment.NewLine);
@@ -140,7 +142,11 @@ namespace PlanFrameworkSVGRename
                 {
                     for (int j = 0; j < dt.Columns.Count; j++)
                     {
-                        strbu.Append(dt.Rows[i][j].ToString() + "\t");
+                        if (string.IsNullOrWhiteSpace(dt.Rows[i][j].ToString().Trim()))
+                        {
+                            strbu.Append(" " + Convert.ToChar(9));
+                        }
+                        strbu.Append(dt.Rows[i][j].ToString().Trim().Replace("\r\n", " ").Replace("\t", " ") + Convert.ToChar(9));
                     }
                     strbu.Append(Environment.NewLine);
                 }
@@ -159,11 +165,72 @@ namespace PlanFrameworkSVGRename
             }
             
         }
+        public static Stream ExportExcel(DataTable dt, string fileName, bool isShowExcle=false)
+        {
+        
+            IWorkbook workbook = null;
+            string filepath = AppDomain.CurrentDomain.BaseDirectory + fileName;
+            IRow row = null;
+            ISheet sheet = null;
+            ICell cell = null;
+            try
+            {
+                if (dt != null && dt.Rows.Count > 0)
+                {
+                    //workbook = new HSSFWorkbook();//导出.xls
+                    workbook = new XSSFWorkbook();//导出.xlsx
+                    sheet = workbook.CreateSheet("Sheet0");//创建一个名称为Sheet0的表  
+                    int rowCount = dt.Rows.Count;//行数
+                    int columnCount = dt.Columns.Count;//列数  
+
+                    //设置列头  
+                    row = sheet.CreateRow(0);//excel第一行设为列头  
+                    for (int c = 0; c < columnCount; c++)
+                    {
+                        cell = row.CreateCell(c);
+                        cell.SetCellValue(dt.Columns[c].ColumnName);
+                    }
+
+                    //设置每行每列的单元格,  
+                    for (int i = 0; i < rowCount; i++)
+                    {
+                        row = sheet.CreateRow(i + 1);
+                        for (int j = 0; j < columnCount; j++)
+                        {
+                            cell = row.CreateCell(j);//excel第二行开始写入数据  
+                            cell.SetCellValue(dt.Rows[i][j].ToString());
+                        }
+                    }
+                    if (!File.Exists(filepath))
+                    {
+                        ////创建文件
+                        file = File.Create(filepath);
+                    }
+                    else
+                    {
+                        file = new FileStream(filepath, FileMode.Truncate, FileAccess.ReadWrite);
+                    }
+                    workbook.Write(file);//向打开的这个xls文件中写入数据  
+                    file = new FileStream(filepath, FileMode.OpenOrCreate, FileAccess.ReadWrite);
+                    file.Flush();
+                    return file;
+                }
+                return file;
+            }
+            catch (Exception ex)
+            {
+             
+                Log.WriteLogs("LOG", "INFO", $"生成xlsx出错");
+                Log.WriteLogs("LOG", "ERROR", $"{ex.ToString()}");
+                close();
+                return file;
+            }
+        }
         public static void close()
         {
          
-            sw.Close();
-            sw.Dispose();
+           // sw.Close();
+            //sw.Dispose();
             file.Close();
             file.Dispose();
         }
